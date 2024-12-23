@@ -1,0 +1,52 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": false,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "target": "es2017",
+    "sourceMap": true,
+    "allowJs": true,
+    "outDir": "./dist",
+    "baseUrl": "./src",
+    "incremental": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@shared/*": [
+        "shared/*"
+      ],
+      "@cqrs/*": [
+        "cqrs/*"
+      ],
+      "@service-request/*": [
+        "service-request/*"
+      ],
+      "@service-provider/*": [
+        "service-provider/*"
+      ],
+      "@service-package/*": [
+        "service-package/*"
+      ],
+      "@payment/*": [
+        "payment/*"
+      ],
+      "@wallet/*": [
+        "wallet/*"
+      ],
+      "@payout/*": [
+        "payout/*"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "src/i18n/locales/*.json",
+    "test/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/__mocks__/*"
+  ],
+}

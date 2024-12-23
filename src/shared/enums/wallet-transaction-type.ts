@@ -1,0 +1,7 @@
+export enum WalletTransactionType {
+    INCOME = 'INCOME',
+    REFUND = 'REFUND',
+    TOP_UP = 'TOP_UP',
+    PAYOUT = 'PAYOUT',
+    RESCHEDULE_SURCHARGE_COMPENSATION = 'RESCHEDULE_SURCHARGE_COMPENSATION',
+}

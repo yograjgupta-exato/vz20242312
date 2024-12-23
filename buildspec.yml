@@ -1,0 +1,64 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - export DEBIAN_FRONTEND=noninteractive
+      - export CI_REGISTRY_TAG=$(echo ${CODEBUILD_RESOLVED_SOURCE_VERSION} | head -c 8)
+      - |
+        if [ -z "${CI_ENVIRONMENT_SLUG}" ]; then
+          export CI_ENVIRONMENT_SLUG=stg
+        fi
+      - |
+        if [ -z "${CI_REGISTRY_TAG}" ]; then
+          echo "CI_REGISTRY_TAG variable not set" 1>&2
+        else
+          echo "CI_REGISTRY_TAG=${CI_REGISTRY_TAG}"
+          export IMAGE_TAG=$CI_REGISTRY_TAG
+        fi
+  pre_build:
+    commands:
+      - echo Installing dependencies...
+      - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      - unzip awscliv2.zip
+      - ./aws/install
+  build:
+    commands:
+      - |
+        if [ "${CI_SKIP_BUILD}" != 'true' ]; then
+          make docker-login
+          make docker-build
+          make docker-push
+        fi
+  post_build:
+    commands:
+      - bash -c "if [ /"$CODEBUILD_BUILD_SUCCEEDING/" == /"0/" ]; then exit 1; fi"
+      - echo Build stage successfully completed on `date`
+      - curl -o /usr/bin/aws-iam-authenticator https://amazon-eks.s3-us-west-2.amazonaws.com/1.12.7/2019-03-27/bin/linux/amd64/aws-iam-authenticator
+      - chmod +x /usr/bin/aws-iam-authenticator
+      - curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.16.8/2020-04-16/bin/linux/amd64/kubectl
+      - chmod +x kubectl
+      - mv ./kubectl /usr/local/bin/kubectl
+      - curl -LO https://git.io/get_helm.sh > get_helm.sh
+      - chmod 700 get_helm.sh
+      - ./get_helm.sh --version v2.17.0
+      - apt install -y software-properties-common
+      - curl -O https://bootstrap.pypa.io/get-pip.py
+      - python get-pip.py
+      - pip install sops
+      - export HELM_HOME=/root/.helm
+      - export KUBECONFIG=/root/.kube/config
+      - export AWS_ACCESS_KEY_ID=$EKS_ACCESS_KEY_ID
+      - export AWS_SECRET_ACCESS_KEY=$EKS_SECRET_ACCESS_KEY
+      - aws eks --region ${AWS_DEFAULT_REGION} update-kubeconfig --name ${EKS_CLUSTER_NAME}
+      - kubectl config use-context arn:aws:eks:ap-southeast-1:${AWS_ACCOUNT_ID}:cluster/${EKS_CLUSTER_NAME}
+      - kubectl get nodes
+      - helm version
+      - helm init --client-only --service-account tiller
+      - helm plugin install https://github.com/zendesk/helm-secrets
+      - |
+        echo "CI_ENVIRONMENT_SLUG: ${CI_ENVIRONMENT_SLUG}"
+        echo "CI_REGISTRY_TAG: ${CI_REGISTRY_TAG}"
+        echo "IMAGE_TAG: ${IMAGE_TAG}"
+      - make print
+      - make helm-upgrade

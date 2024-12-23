@@ -1,0 +1,81 @@
+version: "1.0"
+
+stages:
+  - "clone"
+  - "test"
+  - "build"
+  - "deploy"
+
+steps:
+  clone:
+    title: "Cloning git repository"
+    type: "git-clone"
+    repo: "${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}"
+    revision: "${{CF_BRANCH}}"
+    git: "github"
+    stage: "clone"
+
+  test:
+    title: "Running test"
+    type: "freestyle" # Run any command
+    image: "ubuntu:latest" # The image in which command will be executed
+    working_directory: "${{clone}}" # Running command where code cloned
+    commands:
+      - "ls"
+    stage: "test"
+
+  build_image:
+    registry: ecr
+    title: Building Docker Image
+    type: build
+    image_name: uberisation/api-core
+    working_directory: "${{clone}}"
+    tag: "${{CF_BRANCH_TAG_NORMALIZED}}-${{CF_SHORT_REVISION}}"
+    dockerfile: Dockerfile
+    stage: "build"
+
+  push_to_registry:
+    title: Pushing to Docker Registry
+    type: push
+    candidate: '${{build_image}}'
+    tag: "${{CF_BRANCH_TAG_NORMALIZED}}-${{CF_SHORT_REVISION}}"
+    registry: ecr
+    when:
+      branch:
+        only:
+          - master
+          - feature/deployment
+    stage: "build"
+
+  deploy:
+    title: 'Deploying'
+    image: dtzar/helm-kubectl:2.17.0
+    working_directory: "${{clone}}"
+    commands:
+      - apk update && apk upgrade && apk -Uuv add curl groff less py-pip
+      - pip install awscli
+      - export HELM_HOME="/root/.helm"
+      - export KUBECONFIG=~/.kube/config
+      - curl -o /usr/bin/aws-iam-authenticator https://amazon-eks.s3-us-west-2.amazonaws.com/1.12.7/2019-03-27/bin/linux/amd64/aws-iam-authenticator
+      - chmod +x /usr/bin/aws-iam-authenticator
+      - export CI_ENVIRONMENT_SLUG="dev"
+      - export CI_PROJECT_NAME="api-core"
+      - export CI_REGISTRY_TAG="${{CF_BRANCH_TAG_NORMALIZED}}-${{CF_SHORT_REVISION}}"
+      - export AWS_ACCESS_KEY_ID=$EKS_ACCESS_KEY_ID
+      - export AWS_SECRET_ACCESS_KEY=$EKS_SECRET_ACCESS_KEY
+      - export AWS_DEFAULT_REGION=$EKS_REGION
+      - export EKS_CLUSTER_NAME
+      - aws eks --region $EKS_REGION update-kubeconfig --name $EKS_CLUSTER_NAME
+      - helm init --stable-repo-url https://charts.helm.sh/stable --client-only --service-account tiller
+      - helm plugin install https://github.com/futuresimple/helm-secrets
+      - "echo CI_ENVIRONMENT_SLUG: $CI_ENVIRONMENT_SLUG"
+      - "echo CI_REGISTRY_TAG: $CI_REGISTRY_TAG"
+      - helm secrets upgrade -i -f deploy/values.${CI_ENVIRONMENT_SLUG}.yaml -f deploy/secrets.${CI_ENVIRONMENT_SLUG}.yaml --namespace ${CI_ENVIRONMENT_SLUG} --force ${CI_PROJECT_NAME}-${CI_ENVIRONMENT_SLUG} deploy/
+        --set "global.env=$CI_ENVIRONMENT_SLUG"
+        --set "image.tag=$CI_REGISTRY_TAG";
+    when:
+      branch:
+        only:
+          - master
+          - feature/deployment
+    stage: "deploy"

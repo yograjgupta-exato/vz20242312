@@ -1,0 +1,3 @@
+creation_rules:
+    - path_regex: .*/secrets.demo.*
+      kms: 'arn:aws:kms:ap-southeast-1:112038567264:key/9ef602b8-92cc-4ea7-adfe-ac9683d86409'

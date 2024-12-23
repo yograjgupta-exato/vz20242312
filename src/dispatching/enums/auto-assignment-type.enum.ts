@@ -1,0 +1,8 @@
+export enum AutoAssignmentTypeEnum {
+    BATCH_WISE = 'BATCH_WISE',
+    NEAREST_AVAILABLE = 'NEAREST_AVAILABLE',
+    ONE_BY_ONE = 'ONE_BY_ONE',
+    ROUND_ROBIN = 'ROUND_ROBIN',
+    SEND_TO_ALL = 'SEND_TO_ALL',
+    MANUAL = 'MANUAL',
+}
